@@ -6,7 +6,7 @@ on:
 
 jobs:
   test-build-deploy:
-    runs-on: self-hosted   # your local Minikube runner machine
+    runs-on: self-hosted   # Windows self-hosted runner
 
     steps:
       - name: Checkout repository
@@ -24,7 +24,6 @@ jobs:
           pip install -r requirements.txt
           pytest -q
 
-      # --- Optional: DockerHub upload ---
       - name: Log in to DockerHub
         uses: docker/login-action@v2
         with:
@@ -36,11 +35,10 @@ jobs:
           $env:IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/eco-ci-app:${{ github.sha }}"
           docker build -t $env:IMAGE .
           docker push $env:IMAGE
-
+          Write-Host "✅ Docker image pushed: $env:IMAGE"
         env:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
 
-      # --- Local Minikube deployment ---
       - name: Configure kubectl for Minikube
         run: |
           kubectl config use-context minikube
@@ -48,9 +46,8 @@ jobs:
 
       - name: Deploy to Minikube
         run: |
-          IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/eco-ci-app:${{ github.sha }}
-          kubectl set image deployment/eco-ci-app eco-ci-app=$env:IMAGE --record
-
+          $env:IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/eco-ci-app:${{ github.sha }}"
+          Write-Host "🔄 Deploying image: $env:IMAGE"
           kubectl apply -f k8s/deployment.yaml
           kubectl apply -f k8s/service.yaml
-          
+          kubectl set image deployment/eco-ci-app eco-ci-app=$env:IMAGE --record
