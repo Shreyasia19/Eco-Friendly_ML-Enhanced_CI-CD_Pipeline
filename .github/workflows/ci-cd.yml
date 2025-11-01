@@ -33,9 +33,10 @@ jobs:
 
       - name: Build and push Docker image to DockerHub
         run: |
-          IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/eco-ci-app:${{ github.sha }}
-          docker build -t $IMAGE .
-          docker push $IMAGE
+          $env:IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/eco-ci-app:${{ github.sha }}"
+          docker build -t $env:IMAGE .
+          docker push $env:IMAGE
+
         env:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
 
@@ -48,6 +49,8 @@ jobs:
       - name: Deploy to Minikube
         run: |
           IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/eco-ci-app:${{ github.sha }}
-          kubectl set image deployment/eco-ci-app eco-ci-app=$IMAGE --record || true
+          kubectl set image deployment/eco-ci-app eco-ci-app=$env:IMAGE --record
+
           kubectl apply -f k8s/deployment.yaml
           kubectl apply -f k8s/service.yaml
+          
