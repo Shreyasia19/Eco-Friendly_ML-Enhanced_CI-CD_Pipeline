@@ -7,10 +7,17 @@ on:
 jobs:
   test-build-deploy:
     runs-on: self-hosted   # Windows self-hosted runner
+    outputs:
+      build_duration: ${{ steps.time.outputs.duration }}
+      build_status: ${{ steps.status.outputs.result }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Start timer
+        id: time
+        run: echo "start_time=$(date +%s)" >> $GITHUB_ENV
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -51,3 +58,47 @@ jobs:
           kubectl apply -f k8s/deployment.yaml
           kubectl apply -f k8s/service.yaml
           kubectl set image deployment/eco-ci-app eco-ci-app=$env:IMAGE --record
+
+      - name: Mark success status
+        if: success()
+        id: status
+        run: echo "result=success" >> $GITHUB_OUTPUT
+
+      - name: Mark failure status
+        if: failure()
+        run: echo "result=failure" >> $GITHUB_OUTPUT
+
+      - name: End timer
+        if: always()
+        run: |
+          END_TIME=$(date +%s)
+          START_TIME=${{ env.start_time }}
+          DURATION=$((END_TIME - START_TIME))
+          echo "duration=$DURATION" >> $GITHUB_OUTPUT
+
+
+  push_metrics:
+    name: Push CI/CD Metrics to Prometheus
+    runs-on: ubuntu-latest
+    needs: [test-build-deploy]
+
+    steps:
+      - name: Push build metrics to Prometheus Pushgateway
+        env:
+          BUILD_DURATION: ${{ needs.test-build-deploy.outputs.build_duration }}
+          BUILD_STATUS: ${{ needs.test-build-deploy.outputs.build_status }}
+        run: |
+          echo "Pushing CI/CD metrics to Prometheus..."
+          ENDPOINT="http://192.168.49.2:30091/metrics/job/eco_ci_pipeline"
+
+          cat <<EOF > metrics.txt
+          # HELP ci_build_duration_seconds Duration of CI/CD pipeline build
+          # TYPE ci_build_duration_seconds gauge
+          ci_build_duration_seconds ${BUILD_DURATION}
+
+          # HELP ci_build_status Status of last CI/CD pipeline run (1=success,0=failure)
+          # TYPE ci_build_status gauge
+          ci_build_status{status="${BUILD_STATUS}"} $( [ "$BUILD_STATUS" = "success" ] && echo 1 || echo 0 )
+          EOF
+
+          curl -X PUT --data-binary @metrics.txt $ENDPOINT
