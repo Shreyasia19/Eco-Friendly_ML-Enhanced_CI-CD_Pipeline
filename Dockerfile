@@ -1,23 +1,25 @@
-# Dockerfile
-FROM python:3.11-slim
+FROM python:3.9-slim
 
-# Set working directory inside container
 WORKDIR /app
 
-# Copy only requirements file first (for caching layers)
-COPY app/requirements.txt .
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies
+# Copy requirements and install Python dependencies
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application code
+# Copy application code
 COPY app/ .
 
-# Set Flask environment variable
-ENV FLASK_APP=app.py
-
-# Expose port 5000 for the app
+# Expose application port
 EXPOSE 5000
 
-# Run the Flask app
-CMD ["python", "app.py"]
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:5000/health || exit 1
+
+# Run the application
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "app:app"]

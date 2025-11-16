@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-exporter
+  namespace: monitoring
+  labels:
+    app: node-exporter
+spec:
+  selector:
+    matchLabels:
+      app: node-exporter
+  template:
+    metadata:
+      labels:
+        app: node-exporter
+    spec:
+      hostPID: true
+      hostNetwork: true
+      containers:
+        - name: node-exporter
+          image: prom/node-exporter:latest
+          ports:
+            - containerPort: 9100
+              hostPort: 9100
+          resources:
+            limits:
+              memory: 200Mi
+              cpu: 100m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: node-exporter-service
+  namespace: monitoring
+spec:
+  selector:
+    app: node-exporter
+  ports:
+    - port: 9100
+      targetPort: 9100
+  type: ClusterIP

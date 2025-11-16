@@ -1,0 +1,28 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mbo-job
+  namespace: default
+spec:
+  template:
+    spec:
+      serviceAccountName: mbo-sa
+      containers:
+        - name: mbo
+          image: eco-mbo:latest         # or <yourdockerhub>/eco-mbo:latest
+          imagePullPolicy: Never
+          env:
+            - name: PROM_URL
+              value: "http://prometheus-service.monitoring.svc:9090"
+            - name: DEPLOYMENT
+              value: "eco-ci-app"
+            - name: NAMESPACE
+              value: "default"
+            - name: PUSHGATEWAY_URL
+              value: "http://pushgateway-service.monitoring.svc:9091"  # or cluster svc
+            - name: ALPHA
+              value: "0.7"
+            - name: BETA
+              value: "0.3"
+      restartPolicy: Never
+  backoffLimit: 1

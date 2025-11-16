@@ -14,14 +14,14 @@ spec:
     spec:
       containers:
         - name: eco-ci-app
-          image: eco-ci-app:local      # ✅ local image name
-          imagePullPolicy: Never       # ✅ prevents pulling from Docker Hub
+          image: shreyasia/eco-ci-app:f59015bdc0282e7de078cb50997491e636d2ebd8      
+          imagePullPolicy: Never       
           ports:
             - containerPort: 5000
           resources:
             requests:
-              cpu: "100m"
-              memory: "128Mi"
+              cpu: "2.0"
+              memory: "256Mi"
             limits:
-              cpu: "500m"
+              cpu: "2.0"
               memory: "256Mi"

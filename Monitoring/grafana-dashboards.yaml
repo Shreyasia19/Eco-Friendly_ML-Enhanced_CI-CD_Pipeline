@@ -1,0 +1,71 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  namespace: monitoring
+data:
+  eco-ci-dashboard.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "Eco-CI Pipeline Dashboard",
+        "tags": ["eco-ci", "monitoring"],
+        "timezone": "browser",
+        "panels": [
+          {
+            "id": 1,
+            "title": "CPU Usage",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(container_cpu_usage_seconds_total{container=~\"eco-ci.*\"}[5m])",
+                "legendFormat": "{{pod}}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+          },
+          {
+            "id": 2,
+            "title": "Memory Usage",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "container_memory_usage_bytes{container=~\"eco-ci.*\"}",
+                "legendFormat": "{{pod}}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+          },
+          {
+            "id": 3,
+            "title": "Pod Status",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "count(kube_pod_info{pod=~\"eco-ci.*\"})",
+                "legendFormat": "Total Pods"
+              }
+            ],
+            "gridPos": {"h": 4, "w": 6, "x": 0, "y": 8}
+          },
+          {
+            "id": 4,
+            "title": "Network I/O",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(container_network_receive_bytes_total{pod=~\"eco-ci.*\"}[5m])",
+                "legendFormat": "{{pod}} RX"
+              },
+              {
+                "expr": "rate(container_network_transmit_bytes_total{pod=~\"eco-ci.*\"}[5m])",
+                "legendFormat": "{{pod}} TX"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12}
+          }
+        ],
+        "time": {"from": "now-6h", "to": "now"},
+        "refresh": "10s"
+      }
+    }

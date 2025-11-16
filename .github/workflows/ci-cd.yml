@@ -8,7 +8,7 @@ jobs:
   test-build-deploy:
     runs-on: self-hosted   # Windows self-hosted runner
     outputs:
-      build_duration: ${{ steps.time.outputs.duration }}
+      build_duration: ${{ steps.time_end.outputs.duration }}
       build_status: ${{ steps.status.outputs.result }}
 
     steps:
@@ -16,8 +16,8 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Start timer
-        id: time
-        run: echo "start_time=$(date +%s)" >> $GITHUB_ENV
+        id: time_start
+        run: echo "start_time=$(Get-Date -UFormat %s)" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -43,8 +43,6 @@ jobs:
           docker build -t $env:IMAGE .
           docker push $env:IMAGE
           Write-Host "✅ Docker image pushed: $env:IMAGE"
-        env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
 
       - name: Configure kubectl for Minikube
         run: |
@@ -62,19 +60,20 @@ jobs:
       - name: Mark success status
         if: success()
         id: status
-        run: echo "result=success" >> $GITHUB_OUTPUT
+        run: echo "result=success" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
       - name: Mark failure status
         if: failure()
-        run: echo "result=failure" >> $GITHUB_OUTPUT
+        run: echo "result=failure" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
       - name: End timer
+        id: time_end
         if: always()
         run: |
-          END_TIME=$(date +%s)
-          START_TIME=${{ env.start_time }}
-          DURATION=$((END_TIME - START_TIME))
-          echo "duration=$DURATION" >> $GITHUB_OUTPUT
+          $end_time = [int](Get-Date -UFormat %s)
+          $start_time = [int]$env:start_time
+          $duration = $end_time - $start_time
+          echo "duration=$duration" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
 
   push_metrics:
@@ -88,8 +87,11 @@ jobs:
           BUILD_DURATION: ${{ needs.test-build-deploy.outputs.build_duration }}
           BUILD_STATUS: ${{ needs.test-build-deploy.outputs.build_status }}
         run: |
-          echo "Pushing CI/CD metrics to Prometheus..."
+          echo "📊 Pushing CI/CD metrics to Prometheus..."
+          
+          # Use NodePort or local Pushgateway address
           ENDPOINT="http://192.168.49.2:30091/metrics/job/eco_ci_pipeline"
+          echo "Using Pushgateway endpoint: $ENDPOINT"
 
           cat <<EOF > metrics.txt
           # HELP ci_build_duration_seconds Duration of CI/CD pipeline build
@@ -98,7 +100,7 @@ jobs:
 
           # HELP ci_build_status Status of last CI/CD pipeline run (1=success,0=failure)
           # TYPE ci_build_status gauge
-          ci_build_status{status="${BUILD_STATUS}"} $( [ "$BUILD_STATUS" = "success" ] && echo 1 || echo 0 )
+          ci_build_status{status="${BUILD_STATUS}"} $( [ "${BUILD_STATUS}" = "success" ] && echo 1 || echo 0 )
           EOF
 
-          curl -X PUT --data-binary @metrics.txt $ENDPOINT
+          curl -v -X PUT --data-binary @metrics.txt $ENDPOINT
